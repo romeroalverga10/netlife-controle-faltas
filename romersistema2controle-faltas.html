@@ -324,11 +324,124 @@
     .form-grid .btn-primary { grid-column: 1/-1; }
     .search-wrap input { width: 150px; }
   }
+
+  /* AUTH */
+  .auth-screen {
+    display: none;
+    position: fixed; inset: 0;
+    background: var(--bg);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  .auth-screen.active { display: flex; }
+  .auth-card {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 36px 32px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .auth-logo {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 28px;
+    font-size: 18px; font-weight: 600;
+  }
+  .auth-title { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .auth-sub   { font-size: 13px; color: var(--text3); margin-bottom: 24px; }
+  .auth-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .auth-field label { font-size: 11px; color: var(--text3); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .auth-field input {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius); color: var(--text);
+    font-family: var(--sans); font-size: 13px;
+    padding: 10px 12px; width: 100%; outline: none;
+    transition: border-color 0.15s;
+  }
+  .auth-field input:focus { border-color: var(--accent); }
+  .auth-btn {
+    width: 100%; padding: 11px;
+    background: var(--accent); color: #0e0f11;
+    border: none; border-radius: var(--radius);
+    font-family: var(--sans); font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.15s; margin-top: 6px;
+  }
+  .auth-btn:hover { background: #d4ea42; }
+  .auth-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auth-links { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; text-align: center; }
+  .auth-link { font-size: 13px; color: var(--text3); cursor: pointer; background: none; border: none; font-family: var(--sans); }
+  .auth-link span { color: var(--accent); }
+  .auth-link:hover span { text-decoration: underline; }
+  .auth-error { font-size: 12px; color: var(--red); margin-top: 8px; min-height: 18px; }
+  .auth-success { font-size: 12px; color: var(--green); margin-top: 8px; min-height: 18px; }
+  .user-info { display: flex; align-items: center; gap: 10px; }
+  .user-email { font-size: 12px; color: var(--text3); font-family: var(--mono); }
 </style>
 </head>
 <body>
 
-<div class="app">
+<!-- ── TELA: LOGIN ── -->
+<div class="auth-screen active" id="screen-login">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-dot"></div>
+      <span style="color:var(--accent);">Netlife</span>
+    </div>
+    <div class="auth-title">Entrar</div>
+    <div class="auth-sub">Acesse sua conta para continuar</div>
+    <div class="auth-field"><label>E-mail</label><input type="email" id="login-email" placeholder="seu@email.com" /></div>
+    <div class="auth-field"><label>Senha</label><input type="password" id="login-pass" placeholder="••••••••" /></div>
+    <div class="auth-error" id="login-error"></div>
+    <button class="auth-btn" id="login-btn" onclick="doLogin()">Entrar</button>
+    <div class="auth-links">
+      <button class="auth-link" onclick="showScreen('screen-forgot')">Esqueceu a senha? <span>Recuperar</span></button>
+      <button class="auth-link" onclick="showScreen('screen-register')">Não tem conta? <span>Cadastre-se</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TELA: CADASTRO ── -->
+<div class="auth-screen" id="screen-register">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-dot"></div>
+      <span style="color:var(--accent);">Netlife</span>
+    </div>
+    <div class="auth-title">Criar conta</div>
+    <div class="auth-sub">Preencha os dados para se cadastrar</div>
+    <div class="auth-field"><label>E-mail</label><input type="email" id="reg-email" placeholder="seu@email.com" /></div>
+    <div class="auth-field"><label>Senha</label><input type="password" id="reg-pass" placeholder="Mínimo 6 caracteres" /></div>
+    <div class="auth-field"><label>Confirmar senha</label><input type="password" id="reg-pass2" placeholder="Repita a senha" /></div>
+    <div class="auth-error" id="reg-error"></div>
+    <div class="auth-success" id="reg-success"></div>
+    <button class="auth-btn" id="reg-btn" onclick="doRegister()">Criar conta</button>
+    <div class="auth-links">
+      <button class="auth-link" onclick="showScreen('screen-login')">Já tem conta? <span>Entrar</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TELA: RECUPERAR SENHA ── -->
+<div class="auth-screen" id="screen-forgot">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="logo-dot"></div>
+      <span style="color:var(--accent);">Netlife</span>
+    </div>
+    <div class="auth-title">Recuperar senha</div>
+    <div class="auth-sub">Enviaremos um link para o seu e-mail</div>
+    <div class="auth-field"><label>E-mail</label><input type="email" id="forgot-email" placeholder="seu@email.com" /></div>
+    <div class="auth-error" id="forgot-error"></div>
+    <div class="auth-success" id="forgot-success"></div>
+    <button class="auth-btn" id="forgot-btn" onclick="doForgot()">Enviar link</button>
+    <div class="auth-links">
+      <button class="auth-link" onclick="showScreen('screen-login')">Lembrou a senha? <span>Entrar</span></button>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none;">
   <!-- TOPBAR -->
   <header class="topbar">
     <div class="logo">
@@ -340,6 +453,10 @@
       <button class="btn" onclick="exportExcel()">&#8659; Excel</button>
       <button class="btn" onclick="exportCSV()">&#8659; CSV</button>
       <button class="btn" onclick="printReport()">&#9113; Imprimir</button>
+      <div class="user-info">
+        <span class="user-email" id="user-email-display"></span>
+        <button class="btn btn-danger" onclick="doLogout()">Sair</button>
+      </div>
     </div>
   </header>
 
@@ -466,6 +583,79 @@
 <div id="toast"></div>
 
 <script>
+/* ── Auth Netlife ── */
+function showScreen(id) {
+  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+function showApp(user) {
+  document.querySelectorAll('.auth-screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('main-app').style.display = 'flex';
+  document.getElementById('user-email-display').textContent = user.email;
+  loadItems();
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  const btn   = document.getElementById('login-btn');
+  const err   = document.getElementById('login-error');
+  err.textContent = '';
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  const { data, error } = await supa.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if (error) { err.textContent = traduzErro(error.message); return; }
+  showApp(data.user);
+}
+
+async function doRegister() {
+  const email = document.getElementById('reg-email').value.trim();
+  const pass  = document.getElementById('reg-pass').value;
+  const pass2 = document.getElementById('reg-pass2').value;
+  const btn   = document.getElementById('reg-btn');
+  const err   = document.getElementById('reg-error');
+  const ok    = document.getElementById('reg-success');
+  err.textContent = ''; ok.textContent = '';
+  if (pass !== pass2) { err.textContent = 'As senhas não coincidem.'; return; }
+  if (pass.length < 6) { err.textContent = 'A senha deve ter pelo menos 6 caracteres.'; return; }
+  btn.disabled = true; btn.textContent = 'Cadastrando...';
+  const { error } = await supa.auth.signUp({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Criar conta';
+  if (error) { err.textContent = traduzErro(error.message); return; }
+  ok.textContent = 'Conta criada! Verifique seu e-mail para confirmar.';
+}
+
+async function doForgot() {
+  const email = document.getElementById('forgot-email').value.trim();
+  const btn   = document.getElementById('forgot-btn');
+  const err   = document.getElementById('forgot-error');
+  const ok    = document.getElementById('forgot-success');
+  err.textContent = ''; ok.textContent = '';
+  if (!email) { err.textContent = 'Informe o e-mail.'; return; }
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  const { error } = await supa.auth.resetPasswordForEmail(email);
+  btn.disabled = false; btn.textContent = 'Enviar link';
+  if (error) { err.textContent = traduzErro(error.message); return; }
+  ok.textContent = 'Link enviado! Verifique seu e-mail.';
+}
+
+async function doLogout() {
+  await supa.auth.signOut();
+  document.getElementById('main-app').style.display = 'none';
+  document.getElementById('user-email-display').textContent = '';
+  showScreen('screen-login');
+}
+
+function traduzErro(msg) {
+  if (msg.includes('Invalid login'))      return 'E-mail ou senha incorretos.';
+  if (msg.includes('Email not confirmed')) return 'Confirme seu e-mail antes de entrar.';
+  if (msg.includes('already registered')) return 'Este e-mail já está cadastrado.';
+  if (msg.includes('rate limit'))         return 'Muitas tentativas. Aguarde um momento.';
+  return msg;
+}
+
 /* ── Supabase (banco de dados Netlife) ── */
 const SUPA_URL  = 'https://thvrnrdixdjmnezvvhrd.supabase.co';
 const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRodnJucmRpeGRqbW5lenZ2aHJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwOTEwMjIsImV4cCI6MjA5MDY2NzAyMn0.TwkXxVgcTtIHYlgTX2o5jC4g_Q_Fhbca3VD-_MTqEgs';
@@ -730,8 +920,16 @@ function printReport() {
   window.print();
 }
 
-// INIT — conecta ao Supabase (Netlife) e carrega registros
-loadItems();
+// INIT — verifica sessão ativa
+supa.auth.getSession().then(({ data: { session } }) => {
+  if (session) showApp(session.user);
+  else showScreen('screen-login');
+});
+
+// Enter nas telas de auth
+document.getElementById('login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('reg-pass2').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+document.getElementById('forgot-email').addEventListener('keydown', e => { if (e.key === 'Enter') doForgot(); });
 
 // ENTER key on form
 document.addEventListener('keydown', e => {
