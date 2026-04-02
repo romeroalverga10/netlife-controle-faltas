@@ -6,6 +6,7 @@
 <title>Netlife — Controle de Faltas</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -465,74 +466,40 @@
 <div id="toast"></div>
 
 <script>
-/* ── IndexedDB (banco de dados Netlife) ── */
-const DB_NAME    = 'netlife-faltas';
-const DB_VERSION = 1;
-const STORE      = 'faltas';
-let db = null;
+/* ── Supabase (banco de dados Netlife) ── */
+const SUPA_URL  = 'https://ixgnkwcxrhtdmfhjvsdp.supabase.co';
+const SUPA_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4Z25rd2N4cmh0ZG1maGp2c2RwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MDIzODMsImV4cCI6MjA4OTQ3ODM4M30.Z9TH3iQxveBZodsj_dAt5uFhpV54xB8xBbWaZRwaJTk';
+const supa      = supabase.createClient(SUPA_URL, SUPA_KEY);
 
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = e => {
-      const d = e.target.result;
-      if (!d.objectStoreNames.contains(STORE)) {
-        const store = d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('codigo',    'codigo',    { unique: false });
-        store.createIndex('categoria', 'categoria', { unique: false });
-        store.createIndex('status',    'status',    { unique: false });
-        store.createIndex('data',      'data',      { unique: false });
-      }
-    };
-    req.onsuccess = e => { db = e.target.result; resolve(db); };
-    req.onerror   = e => reject(e.target.error);
-  });
+async function dbGetAll() {
+  const { data, error } = await supa.from('faltas').select('*').order('created_at', { ascending: false });
+  if (error) throw error;
+  return data;
 }
 
-function dbGetAll() {
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction(STORE, 'readonly');
-    const req = tx.objectStore(STORE).getAll();
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = e => reject(e.target.error);
-  });
+async function dbAdd(item) {
+  const { data, error } = await supa.from('faltas').insert([item]).select().single();
+  if (error) throw error;
+  return data.id;
 }
 
-function dbAdd(item) {
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction(STORE, 'readwrite');
-    const req = tx.objectStore(STORE).add(item);
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = e => reject(e.target.error);
-  });
+async function dbPut(item) {
+  const { error } = await supa.from('faltas').update({
+    codigo: item.codigo, qty: item.qty, valor: item.valor, categoria: item.categoria
+  }).eq('id', item.id);
+  if (error) throw error;
 }
 
-function dbPut(item) {
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction(STORE, 'readwrite');
-    const req = tx.objectStore(STORE).put(item);
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = e => reject(e.target.error);
-  });
+async function dbDelete(id) {
+  const { error } = await supa.from('faltas').delete().eq('id', id);
+  if (error) throw error;
 }
 
-function dbDelete(id) {
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction(STORE, 'readwrite');
-    const req = tx.objectStore(STORE).delete(id);
-    req.onsuccess = () => resolve();
-    req.onerror   = e => reject(e.target.error);
-  });
+async function dbClear() {
+  const { error } = await supa.from('faltas').delete().neq('id', 0);
+  if (error) throw error;
 }
 
-function dbClear() {
-  return new Promise((resolve, reject) => {
-    const tx  = db.transaction(STORE, 'readwrite');
-    const req = tx.objectStore(STORE).clear();
-    req.onsuccess = () => resolve();
-    req.onerror   = e => reject(e.target.error);
-  });
-}
 /* ── estado da aplicação ── */
 let items = [];
 let currentFilter = 'todos';
@@ -541,11 +508,15 @@ let sortDir = -1;
 let editingId = null;
 
 async function loadItems() {
-  items = await dbGetAll();
-  renderTable(); updateMetrics();
+  try {
+    items = await dbGetAll();
+    renderTable(); updateMetrics();
+  } catch(e) {
+    toast('Erro ao carregar dados: ' + e.message, '!');
+  }
 }
 
-function save() { /* no-op: writes são feitos direto no IndexedDB */ }
+function save() { /* no-op: writes são feitos direto no Supabase */ }
 
 function fmt(v) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -759,11 +730,8 @@ function printReport() {
   window.print();
 }
 
-// INIT — abre banco IndexedDB (Netlife) e carrega registros
-openDB().then(loadItems).catch(err => {
-  console.error('Erro ao abrir banco Netlife:', err);
-  toast('Erro ao abrir banco de dados', '!');
-});
+// INIT — conecta ao Supabase (Netlife) e carrega registros
+loadItems();
 
 // ENTER key on form
 document.addEventListener('keydown', e => {
