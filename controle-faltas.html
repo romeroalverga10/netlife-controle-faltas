@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Netlife — Controle de Faltas</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0e0f11;
+    --bg2: #16181c;
+    --bg3: #1e2128;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.13);
+    --text: #f0f0ee;
+    --text2: #8a8c94;
+    --text3: #565860;
+    --accent: #e8ff5a;
+    --accent-dim: rgba(232,255,90,0.12);
+    --red: #ff5a5a;
+    --red-dim: rgba(255,90,90,0.12);
+    --amber: #ffb347;
+    --amber-dim: rgba(255,179,71,0.12);
+    --green: #57e0a0;
+    --green-dim: rgba(87,224,160,0.12);
+    --blue: #5ab4ff;
+    --blue-dim: rgba(90,180,255,0.12);
+    --radius: 10px;
+    --radius-lg: 14px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Sora', sans-serif;
+  }
+
+  html { font-size: 15px; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  /* LAYOUT */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+  }
+  .topbar-actions { display: flex; gap: 8px; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+    color: var(--text2);
+  }
+  .btn:hover { border-color: rgba(255,255,255,0.22); color: var(--text); }
+  .btn-primary {
+    background: var(--accent);
+    color: #0e0f11;
+    border-color: transparent;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: #d4ea42; color: #0e0f11; }
+  .btn-danger { color: var(--red); }
+  .btn-danger:hover { background: var(--red-dim); border-color: rgba(255,90,90,0.3); color: var(--red); }
+
+  /* MAIN */
+  .main { flex: 1; padding: 28px 32px; max-width: 1200px; width: 100%; margin: 0 auto; }
+
+  /* METRICS */
+  .metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .metric-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .metric-card:hover { border-color: var(--border2); }
+  .metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .metric-card.accent::before { background: var(--accent); }
+  .metric-card.red::before { background: var(--red); }
+  .metric-card.amber::before { background: var(--amber); }
+  .metric-card.blue::before { background: var(--blue); }
+  .metric-label { font-size: 11px; font-weight: 500; color: var(--text3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .metric-value { font-family: var(--mono); font-size: 26px; font-weight: 500; color: var(--text); line-height: 1; }
+  .metric-value.red { color: var(--red); }
+  .metric-value.amber { color: var(--amber); }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 6px; font-family: var(--mono); }
+
+  /* PANEL */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+  .panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .panel-header:hover { background: rgba(255,255,255,0.02); }
+  .panel-title { font-size: 13px; font-weight: 500; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+  .panel-body { padding: 20px; }
+  .chevron { transition: transform 0.2s; color: var(--text3); font-size: 12px; }
+  .chevron.open { transform: rotate(180deg); }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: 1.5fr 0.8fr 0.8fr 1.1fr auto; gap: 10px; align-items: end; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; color: var(--text3); font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; }
+  input[type=text], input[type=number], select {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 8px 12px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+    height: 36px;
+  }
+  input[type=text]:focus, input[type=number]:focus, select:focus {
+    border-color: var(--accent);
+  }
+  input::placeholder { color: var(--text3); }
+  select option { background: var(--bg3); }
+  .error-msg { font-size: 12px; color: var(--red); margin-top: 8px; display: none; }
+
+  /* TOOLBAR */
+  .toolbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .toolbar-left { display: flex; align-items: center; gap: 8px; }
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-left: 32px; width: 220px; }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 13px; pointer-events: none; }
+  .filter-group { display: flex; gap: 4px; }
+  .filter-btn {
+    font-size: 11px; font-weight: 500;
+    padding: 5px 11px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text3);
+    cursor: pointer; transition: all 0.15s;
+    font-family: var(--sans);
+  }
+  .filter-btn:hover { color: var(--text); border-color: var(--border2); }
+  .filter-btn.active { background: var(--accent-dim); border-color: rgba(232,255,90,0.3); color: var(--accent); }
+  .filter-btn.red-f.active  { background: var(--red-dim);   border-color: rgba(255,90,90,0.3); color: var(--red); }
+  .filter-btn.amber-f.active { background: var(--amber-dim); border-color: rgba(255,179,71,0.3); color: var(--amber); }
+  .filter-btn.green-f.active { background: var(--green-dim); border-color: rgba(87,224,160,0.3); color: var(--green); }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left;
+    padding: 10px 20px;
+    font-size: 10px;
+    font-weight: 500;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  thead th:hover { color: var(--text2); }
+  thead th .sort-icon { margin-left: 4px; opacity: 0.4; }
+  thead th.sorted .sort-icon { opacity: 1; color: var(--accent); }
+  tbody td { padding: 11px 20px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr { transition: background 0.1s; }
+  tbody tr:hover td { background: rgba(255,255,255,0.025); }
+  .td-produto { font-weight: 500; }
+  .td-mono { font-family: var(--mono); color: var(--text2); }
+  .td-total { font-family: var(--mono); font-weight: 500; color: var(--text); }
+
+  /* BADGE */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 500;
+    padding: 3px 9px; border-radius: 99px;
+  }
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .badge.critico  { background: var(--red-dim);   color: var(--red);   }
+  .badge.critico  .badge-dot { background: var(--red); }
+  .badge.moderado { background: var(--amber-dim); color: var(--amber); }
+  .badge.moderado .badge-dot { background: var(--amber); }
+  .badge.baixo    { background: var(--green-dim); color: var(--green); }
+  .badge.baixo    .badge-dot { background: var(--green); }
+
+  /* EDIT MODE */
+  .edit-input {
+    background: var(--bg3);
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 4px 8px;
+    width: 100%;
+    outline: none;
+  }
+  .actions-cell { display: flex; gap: 6px; align-items: center; }
+  .icon-btn {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--text3);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 12px;
+    transition: all 0.15s;
+    font-family: var(--sans);
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--border2); background: var(--bg3); }
+  .icon-btn.save { color: var(--green); }
+  .icon-btn.save:hover { background: var(--green-dim); border-color: rgba(87,224,160,0.3); }
+  .icon-btn.del:hover { color: var(--red); background: var(--red-dim); border-color: rgba(255,90,90,0.3); }
+
+  /* EMPTY */
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text3); }
+  .empty-state p { font-size: 13px; margin-top: 8px; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 12px 18px;
+    font-size: 13px; color: var(--text);
+    opacity: 0; pointer-events: none;
+    transform: translateY(10px);
+    transition: all 0.2s;
+    z-index: 9999;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 420px;
+    max-width: 95vw;
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 16px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 99px; }
+
+  /* RESPONSIVE */
+  @media (max-width: 800px) {
+    .topbar { padding: 14px 16px; }
+    .main { padding: 16px; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .form-grid { grid-template-columns: 1fr 1fr; }
+    .form-grid .btn-primary { grid-column: 1/-1; }
+    .search-wrap input { width: 150px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="logo">
+      <div class="logo-dot"></div>
+      <span style="color:var(--accent);letter-spacing:-0.5px;">Netlife</span>
+      <span style="color:var(--text3);font-weight:400;font-size:13px;">/ Controle de Faltas</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn" onclick="exportExcel()">&#8659; Excel</button>
+      <button class="btn" onclick="exportCSV()">&#8659; CSV</button>
+      <button class="btn" onclick="printReport()">&#9113; Imprimir</button>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- FORM PANEL -->
+    <div class="panel" id="form-panel">
+      <div class="panel-header" onclick="togglePanel('form-panel')">
+        <span class="panel-title">&#43; Registrar falta</span>
+        <span class="chevron open" id="form-panel-chevron">&#9650;</span>
+      </div>
+      <div class="panel-body" id="form-panel-body">
+        <div class="form-grid">
+          <div class="field">
+            <label>Código</label>
+            <input type="text" id="f-codigo" placeholder="Ex: SKU-001" />
+          </div>
+          <div class="field">
+            <label>Quantidade</label>
+            <input type="number" id="f-qty" placeholder="0" min="1" />
+          </div>
+          <div class="field">
+            <label>Valor unitário (R$)</label>
+            <input type="number" id="f-valor" placeholder="0,00" min="0" step="0.01" />
+          </div>
+          <div class="field">
+            <label>Categoria</label>
+            <select id="f-cat">
+              <option value="Geral">Geral</option>
+              <option value="Escritório">Escritório</option>
+              <option value="Limpeza">Limpeza</option>
+              <option value="Informática">Informática</option>
+              <option value="Alimentação">Alimentação</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="addItem()">Adicionar</button>
+        </div>
+        <div class="error-msg" id="f-erro"></div>
+      </div>
+    </div>
+
+    <!-- METRICS -->
+    <div class="metrics">
+      <div class="metric-card accent">
+        <div class="metric-label">Produtos distintos</div>
+        <div class="metric-value" id="m-total">0</div>
+        <div class="metric-sub">registros</div>
+      </div>
+      <div class="metric-card red">
+        <div class="metric-label">Qtd. total faltante</div>
+        <div class="metric-value red" id="m-qty">0</div>
+        <div class="metric-sub">unidades</div>
+      </div>
+      <div class="metric-card amber">
+        <div class="metric-label">Valor total em falta</div>
+        <div class="metric-value" id="m-val">R$ 0,00</div>
+        <div class="metric-sub" id="m-val-sub">&nbsp;</div>
+      </div>
+      <div class="metric-card blue">
+        <div class="metric-label">Itens críticos</div>
+        <div class="metric-value red" id="m-crit">0</div>
+        <div class="metric-sub">qtd ≥ 20</div>
+      </div>
+    </div>
+
+    <!-- TABLE PANEL -->
+    <div class="panel">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <div class="search-wrap">
+            <span class="search-icon">&#128269;</span>
+            <input type="text" id="search" placeholder="Buscar produto..." oninput="renderTable()" />
+          </div>
+          <div class="filter-group">
+            <button class="filter-btn active" data-filter="todos" onclick="setFilter(this)">Todos</button>
+            <button class="filter-btn green-f" data-filter="baixo" onclick="setFilter(this)">Baixo</button>
+            <button class="filter-btn amber-f" data-filter="moderado" onclick="setFilter(this)">Moderado</button>
+            <button class="filter-btn red-f" data-filter="critico" onclick="setFilter(this)">Crítico</button>
+          </div>
+        </div>
+        <button class="btn btn-danger" onclick="confirmClearAll()">&#128465; Limpar tudo</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('codigo')">Código <span class="sort-icon" id="sort-codigo">&#8597;</span></th>
+              <th onclick="sortBy('categoria')">Categoria <span class="sort-icon" id="sort-categoria">&#8597;</span></th>
+              <th onclick="sortBy('qty')">Qtd. <span class="sort-icon" id="sort-qty">&#8597;</span></th>
+              <th onclick="sortBy('valor')">Vlr. unit. <span class="sort-icon" id="sort-valor">&#8597;</span></th>
+              <th onclick="sortBy('total')">Total <span class="sort-icon" id="sort-total">&#8597;</span></th>
+              <th onclick="sortBy('status')">Status <span class="sort-icon" id="sort-status">&#8597;</span></th>
+              <th onclick="sortBy('data')">Data <span class="sort-icon" id="sort-data">&#8597;</span></th>
+              <th style="width:110px;">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty-state" id="empty-state" style="display:none;">
+          <div style="font-size:28px;">&#128230;</div>
+          <p>Nenhuma falta registrada ainda.</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- CLEAR MODAL -->
+<div class="modal-overlay" id="clear-modal">
+  <div class="modal">
+    <h3>Limpar todos os registros?</h3>
+    <p style="font-size:13px;color:var(--text2);">Essa ação não pode ser desfeita. Todos os registros serão removidos permanentemente.</p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" onclick="clearAll()">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+/* ── IndexedDB (banco de dados Netlife) ── */
+const DB_NAME    = 'netlife-faltas';
+const DB_VERSION = 1;
+const STORE      = 'faltas';
+let db = null;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(STORE)) {
+        const store = d.createObjectStore(STORE, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('codigo',    'codigo',    { unique: false });
+        store.createIndex('categoria', 'categoria', { unique: false });
+        store.createIndex('status',    'status',    { unique: false });
+        store.createIndex('data',      'data',      { unique: false });
+      }
+    };
+    req.onsuccess = e => { db = e.target.result; resolve(db); };
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbGetAll() {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readonly');
+    const req = tx.objectStore(STORE).getAll();
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbAdd(item) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).add(item);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbPut(item) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).put(item);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbDelete(id) {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).delete(id);
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+function dbClear() {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(STORE, 'readwrite');
+    const req = tx.objectStore(STORE).clear();
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+/* ── estado da aplicação ── */
+let items = [];
+let currentFilter = 'todos';
+let sortCol = 'data';
+let sortDir = -1;
+let editingId = null;
+
+async function loadItems() {
+  items = await dbGetAll();
+  renderTable(); updateMetrics();
+}
+
+function save() { /* no-op: writes são feitos direto no IndexedDB */ }
+
+function fmt(v) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function statusOf(qty) {
+  if (qty >= 20) return 'critico';
+  if (qty >= 5)  return 'moderado';
+  return 'baixo';
+}
+
+function statusLabel(s) {
+  return { critico: 'Crítico', moderado: 'Moderado', baixo: 'Baixo' }[s];
+}
+
+function toast(msg, icon='✓') {
+  const t = document.getElementById('toast');
+  t.innerHTML = `<span>${icon}</span> ${msg}`;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+async function addItem() {
+  const codigo = document.getElementById('f-codigo').value.trim();
+  const qty   = parseInt(document.getElementById('f-qty').value);
+  const valor = parseFloat(document.getElementById('f-valor').value);
+  const cat   = document.getElementById('f-cat').value;
+  const erro  = document.getElementById('f-erro');
+
+  if (!codigo || isNaN(qty) || qty < 1 || isNaN(valor) || valor < 0) {
+    erro.textContent = 'Preencha todos os campos corretamente.';
+    erro.style.display = 'block';
+    return;
+  }
+  erro.style.display = 'none';
+
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  const newId = await dbAdd({ codigo, qty, valor, categoria: cat, data: hoje });
+  items.push({ id: newId, codigo, qty, valor, categoria: cat, data: hoje });
+
+  document.getElementById('f-codigo').value = '';
+  document.getElementById('f-qty').value = '';
+  document.getElementById('f-valor').value = '';
+  document.getElementById('f-codigo').focus();
+
+  renderTable(); updateMetrics();
+  toast('Falta registrada com sucesso');
+}
+
+async function removeItem(id) {
+  await dbDelete(id);
+  items = items.filter(i => i.id !== id);
+  renderTable(); updateMetrics();
+  toast('Registro removido', '✕');
+}
+
+function startEdit(id) {
+  editingId = id;
+  renderTable();
+}
+
+async function saveEdit(id) {
+  const row = document.querySelector(`tr[data-id="${id}"]`);
+  const codigo = row.querySelector('.edit-cod').value.trim();
+  const qty   = parseInt(row.querySelector('.edit-qty').value);
+  const valor = parseFloat(row.querySelector('.edit-val').value);
+  const cat   = row.querySelector('.edit-cat').value;
+  if (!codigo || isNaN(qty) || qty < 1 || isNaN(valor) || valor < 0) {
+    toast('Valores inválidos', '!');
+    return;
+  }
+  const item = items.find(i => i.id === id);
+  item.codigo = codigo; item.qty = qty; item.valor = valor; item.categoria = cat;
+  await dbPut(item);
+  editingId = null;
+  renderTable(); updateMetrics();
+  toast('Alterações salvas');
+}
+
+function cancelEdit() { editingId = null; renderTable(); }
+
+function setFilter(btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentFilter = btn.dataset.filter;
+  renderTable();
+}
+
+function sortBy(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = 1; }
+  document.querySelectorAll('thead th').forEach(th => th.classList.remove('sorted'));
+  const el = document.querySelector(`[id="sort-${col}"]`);
+  if (el) { el.closest('th').classList.add('sorted'); el.textContent = sortDir === 1 ? '▲' : '▼'; }
+  renderTable();
+}
+
+function renderTable() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let list = items.filter(i => (i.codigo||'').toLowerCase().includes(q));
+  if (currentFilter !== 'todos') list = list.filter(i => statusOf(i.qty) === currentFilter);
+
+  list.sort((a, b) => {
+    let va, vb;
+    if (sortCol === 'total') { va = a.qty * a.valor; vb = b.qty * b.valor; }
+    else if (sortCol === 'status') { const o = {baixo:0,moderado:1,critico:2}; va = o[statusOf(a.qty)]; vb = o[statusOf(b.qty)]; }
+    else { va = a[sortCol]; vb = b[sortCol]; }
+    if (typeof va === 'string') return va.localeCompare(vb) * sortDir;
+    return (va - vb) * sortDir;
+  });
+
+  const tbody = document.getElementById('tbody');
+  const empty = document.getElementById('empty-state');
+  if (list.length === 0) { tbody.innerHTML = ''; empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = list.map(i => {
+    const s = statusOf(i.qty);
+    const total = i.qty * i.valor;
+    if (editingId === i.id) {
+      return `<tr data-id="${i.id}">
+        <td><input class="edit-input edit-cod" value="${i.codigo||''}" placeholder="SKU" style="width:100px;" /></td>
+        <td><select class="edit-input edit-cat" style="height:30px;padding:2px 6px;">
+          ${['Geral','Escritório','Limpeza','Informática','Alimentação','Outro'].map(c=>`<option${c===i.categoria?' selected':''}>${c}</option>`).join('')}
+        </select></td>
+        <td><input class="edit-input edit-qty" type="number" min="1" value="${i.qty}" style="width:70px;" /></td>
+        <td><input class="edit-input edit-val" type="number" step="0.01" min="0" value="${i.valor.toFixed(2)}" style="width:90px;" /></td>
+        <td class="td-mono">${fmt(total)}</td>
+        <td><span class="badge ${s}"><span class="badge-dot"></span>${statusLabel(s)}</span></td>
+        <td class="td-mono">${i.data}</td>
+        <td><div class="actions-cell">
+          <button class="icon-btn save" onclick="saveEdit(${i.id})">&#10003; Salvar</button>
+          <button class="icon-btn" onclick="cancelEdit()">&#10005;</button>
+        </div></td>
+      </tr>`;
+    }
+    return `<tr data-id="${i.id}">
+      <td class="td-mono" style="font-size:12px;color:var(--accent);letter-spacing:0.3px;">${i.codigo||'—'}</td>
+      <td style="color:var(--text2);font-size:12px;">${i.categoria}</td>
+      <td class="td-mono">${i.qty}</td>
+      <td class="td-mono">${fmt(i.valor)}</td>
+      <td class="td-total">${fmt(total)}</td>
+      <td><span class="badge ${s}"><span class="badge-dot"></span>${statusLabel(s)}</span></td>
+      <td class="td-mono" style="font-size:12px;">${i.data}</td>
+      <td><div class="actions-cell">
+        <button class="icon-btn" onclick="startEdit(${i.id})" title="Editar">&#9998;</button>
+        <button class="icon-btn del" onclick="removeItem(${i.id})" title="Remover">&#128465;</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function updateMetrics() {
+  const total = items.length;
+  const qty   = items.reduce((s,i) => s + i.qty, 0);
+  const val   = items.reduce((s,i) => s + i.qty * i.valor, 0);
+  const crit  = items.filter(i => statusOf(i.qty) === 'critico').length;
+  const avg   = total > 0 ? val / total : 0;
+  document.getElementById('m-total').textContent = total;
+  document.getElementById('m-qty').textContent   = qty;
+  document.getElementById('m-val').textContent   = fmt(val);
+  document.getElementById('m-val-sub').textContent = `média ${fmt(avg)} / item`;
+  document.getElementById('m-crit').textContent  = crit;
+}
+
+function togglePanel(id) {
+  const body = document.getElementById(id + '-body');
+  const chev = document.getElementById(id + '-chevron');
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : '';
+  chev.classList.toggle('open', !open);
+}
+
+function confirmClearAll() { document.getElementById('clear-modal').classList.add('open'); }
+function closeModal() { document.getElementById('clear-modal').classList.remove('open'); }
+async function clearAll() { await dbClear(); items = []; closeModal(); renderTable(); updateMetrics(); toast('Todos os registros removidos','✕'); }
+
+function exportExcel() {
+  if (!items.length) { toast('Nenhum dado para exportar','!'); return; }
+  const ws = XLSX.utils.json_to_sheet(items.map(i=>({
+    Código: i.codigo||'',
+    Categoria: i.categoria,
+    Quantidade: i.qty,
+    'Valor Unitário': i.valor,
+    Total: +(i.qty * i.valor).toFixed(2),
+    Status: statusLabel(statusOf(i.qty)),
+    Data: i.data
+  })));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Faltas');
+  XLSX.writeFile(wb, 'controle-faltas.xlsx');
+  toast('Exportado para Excel');
+}
+
+function exportCSV() {
+  if (!items.length) { toast('Nenhum dado para exportar','!'); return; }
+  const header = ['Código','Categoria','Quantidade','Valor Unitário','Total','Status','Data'];
+  const rows = items.map(i => [
+    i.codigo||'', i.categoria, i.qty, i.valor.toFixed(2),
+    (i.qty * i.valor).toFixed(2), statusLabel(statusOf(i.qty)), i.data
+  ]);
+  const csv = [header, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'}));
+  a.download = 'controle-faltas.csv';
+  a.click();
+  toast('Exportado para CSV');
+}
+
+function printReport() {
+  window.print();
+}
+
+// INIT — abre banco IndexedDB (Netlife) e carrega registros
+openDB().then(loadItems).catch(err => {
+  console.error('Erro ao abrir banco Netlife:', err);
+  toast('Erro ao abrir banco de dados', '!');
+});
+
+// ENTER key on form
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && ['f-codigo','f-qty','f-valor'].includes(e.target.id)) addItem();
+});
+</script>
+
+<style media="print">
+  .topbar-actions, .btn, .icon-btn, .toolbar .btn-danger, #toast, .modal-overlay { display: none !important; }
+  body { background: white; color: black; }
+  .panel, .metric-card { border: 1px solid #ccc; }
+</style>
+
+</body>
+</html>
