@@ -618,13 +618,16 @@ async function doRegister() {
   const err   = document.getElementById('reg-error');
   const ok    = document.getElementById('reg-success');
   err.textContent = ''; ok.textContent = '';
+  if (!email) { err.textContent = 'Informe o e-mail.'; return; }
   if (pass !== pass2) { err.textContent = 'As senhas não coincidem.'; return; }
   if (pass.length < 6) { err.textContent = 'A senha deve ter pelo menos 6 caracteres.'; return; }
   btn.disabled = true; btn.textContent = 'Cadastrando...';
-  const { error } = await supa.auth.signUp({ email, password: pass });
+  const { data, error } = await supa.auth.signUp({ email, password: pass });
   btn.disabled = false; btn.textContent = 'Criar conta';
   if (error) { err.textContent = traduzErro(error.message); return; }
-  ok.textContent = 'Conta criada! Verifique seu e-mail para confirmar.';
+  if (data.session) { showApp(data.user); return; }
+  ok.textContent = 'Conta criada! Faça login para continuar.';
+  setTimeout(() => showScreen('screen-login'), 1500);
 }
 
 async function doForgot() {
@@ -921,6 +924,14 @@ function printReport() {
 }
 
 // INIT — verifica sessão ativa
+supa.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    showApp(session.user);
+  } else if (event === 'SIGNED_OUT') {
+    document.getElementById('main-app').style.display = 'none';
+    showScreen('screen-login');
+  }
+});
 supa.auth.getSession().then(({ data: { session } }) => {
   if (session) showApp(session.user);
   else showScreen('screen-login');
